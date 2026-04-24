@@ -52,6 +52,7 @@ class _MyHomePageState extends State<MyHomePage> {
   bool isSaving = false;
   String statusMessage = 'Siap mengumpulkan data';
   Position? lastPosition;
+  String? lastSavedTimestamp;
   String? lastSavedPath;
 
   @override
@@ -160,12 +161,13 @@ class _MyHomePageState extends State<MyHomePage> {
 
     final position = await getLocation();
     final exists = await file.exists();
+    final timestamp = DateTime.now().toUtc().toIso8601String();
     final row =
-        '${position.longitude},${position.latitude},${leq.toStringAsFixed(1)}\n';
+        '$timestamp,${position.longitude},${position.latitude},${leq.toStringAsFixed(1)}\n';
 
     final sink = file.openWrite(mode: FileMode.append);
     if (!exists) {
-      sink.writeln('longitude,latitude,noise_db');
+      sink.writeln('timestamp_utc,longitude,latitude,noise_db');
     }
     sink.write(row);
     await sink.flush();
@@ -174,6 +176,7 @@ class _MyHomePageState extends State<MyHomePage> {
     if (mounted) {
       setState(() {
         lastPosition = position;
+        lastSavedTimestamp = timestamp;
       });
     }
 
@@ -260,7 +263,9 @@ class _MyHomePageState extends State<MyHomePage> {
       setState(() {
         currentLeq = leq;
         lastSavedPath = savedPath;
-        statusMessage = 'Data tersimpan di $savedPath';
+        statusMessage = lastSavedTimestamp == null
+            ? 'Data tersimpan di $savedPath'
+            : 'Data tersimpan pada $lastSavedTimestamp di $savedPath';
       });
     } catch (error) {
       if (!mounted) return;
@@ -422,6 +427,12 @@ class _MyHomePageState extends State<MyHomePage> {
                         lastSavedPath == null
                             ? 'Belum ada file CSV tersimpan'
                             : 'CSV: $lastSavedPath',
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        lastSavedTimestamp == null
+                            ? 'Timestamp belum tersedia'
+                            : 'Timestamp: $lastSavedTimestamp',
                       ),
                       const SizedBox(height: 8),
                       Text('Sampel tersimpan: ${samples.length}'),

@@ -71,13 +71,13 @@ return 10 * log(sum / samples.length) / ln10;
   final pos = await getLocation();
 
   String row =
-  "${pos.longitude},${pos.latitude},${leq.toStringAsFixed(1)}\n";
+  "${DateTime.now().toUtc().toIso8601String()},${pos.longitude},${pos.latitude},${leq.toStringAsFixed(1)}\n";
 
   await file.writeAsString(row, mode: FileMode.append);
   }
 * output csv
-  longitude,latitude,noise_db
-  98.6735,3.5952,72.4
+  timestamp_utc,longitude,latitude,noise_db
+  2026-04-24T12:34:56.000Z,98.6735,3.5952,72.4
 - UI Minimal (Contoh)
   Column(
   children: [
