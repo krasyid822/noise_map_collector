@@ -2,6 +2,13 @@
 
 Aplikasi untuk mengumpulkan titik kebisingan (db meter) dan koordinat
 
+Fitur utama:
+- Mengambil noise, koordinat GPS, altitude, dan timestamp.
+- Menyimpan hasil ke CSV rolling utama seperti sebelumnya.
+- Saat CSV dibagikan dari WhatsApp/open-with, file otomatis masuk ke inbox `CSV Tools`.
+- CSV inbox bisa dipreview, dihapus, lalu digabung menjadi satu file CSV tunggal.
+- Menyediakan tab `CSV Tools` di bottom navigation untuk inbox dan merge CSV.
+
 ## Getting Started
 
 This project is a starting point for a Flutter application.
@@ -65,19 +72,21 @@ return 10 * log(sum / samples.length) / ln10;
   }
 - Simpan Data (CSV untuk QGIS)
   Future<void> saveCSV(double leq) async {
-  final dir = await getExternalStorageDirectory();
-  final file = File("${dir!.path}/noise_data.csv");
-
   final pos = await getLocation();
 
   String row =
-  "${DateTime.now().toUtc().toIso8601String()},${pos.longitude},${pos.latitude},${leq.toStringAsFixed(1)}\n";
+  "${DateTime.now().toUtc().toIso8601String()},${pos.longitude},${pos.latitude},${pos.altitude.toStringAsFixed(1)},${leq.toStringAsFixed(1)}\n";
 
-  await file.writeAsString(row, mode: FileMode.append);
+  // CSV header:
+  // timestamp_utc,longitude,latitude,altitude_m,noise_db
   }
 * output csv
-  timestamp_utc,longitude,latitude,noise_db
-  2026-04-24T12:34:56.000Z,98.6735,3.5952,72.4
+  timestamp_utc,longitude,latitude,altitude_m,noise_db
+  2026-04-24T12:34:56.000Z,98.6735,3.5952,12.4,72.4
+- Workflow baru
+  - Tombol `Stop & Save` menambahkan baris baru ke CSV rolling utama.
+  - Tab `CSV Tools` menampilkan inbox CSV yang diterima dari WhatsApp/open-with.
+  - Setiap item bisa dipreview atau dihapus sebelum memakai `Merge All CSV`.
 - UI Minimal (Contoh)
   Column(
   children: [
