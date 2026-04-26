@@ -68,6 +68,7 @@ class _MyHomePageState extends State<MyHomePage> {
   String? lastMergedPath;
   int? lastMergedFileCount;
   bool _inboxLoaded = false;
+  int _sampleLimit = 10;
 
   @override
   void initState() {
@@ -124,31 +125,31 @@ class _MyHomePageState extends State<MyHomePage> {
   Future<void> _listenForSharedCsv() async {
     if (!(Platform.isAndroid || Platform.isIOS)) return;
 
-    print('DEBUG: Memulai _listenForSharedCsv');
+    debugPrint('DEBUG: Memulai _listenForSharedCsv');
 
     try {
       final initialMedia = await FlutterSharingIntent.instance.getInitialSharing();
-      print('DEBUG: initialMedia length: ${initialMedia.length}');
+      debugPrint('DEBUG: initialMedia length: ${initialMedia.length}');
       if (initialMedia.isNotEmpty) {
         for (var file in initialMedia) {
-          print('DEBUG: initialMedia file: ${file.value}, type: ${file.type}');
+          debugPrint('DEBUG: initialMedia file: ${file.value}, type: ${file.type}');
         }
         await _importSharedMedia(initialMedia, sourceLabel: 'share awal');
       }
     } catch (e) {
-      print('DEBUG: Error getInitialSharing: $e');
+      debugPrint('DEBUG: Error getInitialSharing: $e');
     }
 
     sharedMediaSubscription = FlutterSharingIntent.instance.getMediaStream().listen(
       (List<SharedFile> mediaFiles) {
-        print('DEBUG: Stream mediaFiles length: ${mediaFiles.length}');
+        debugPrint('DEBUG: Stream mediaFiles length: ${mediaFiles.length}');
         for (var file in mediaFiles) {
-          print('DEBUG: Stream file: ${file.value}, type: ${file.type}');
+          debugPrint('DEBUG: Stream file: ${file.value}, type: ${file.type}');
         }
         _importSharedMedia(mediaFiles, sourceLabel: 'share masuk');
       },
       onError: (Object error) {
-        print('DEBUG: Stream error: $error');
+        debugPrint('DEBUG: Stream error: $error');
         if (!mounted) return;
         setState(() {
           statusMessage = 'Gagal menerima CSV: $error';
@@ -161,7 +162,7 @@ class _MyHomePageState extends State<MyHomePage> {
     List<SharedFile> mediaFiles, {
     required String sourceLabel,
   }) async {
-    print('DEBUG: _importSharedMedia dari $sourceLabel, jumlah: ${mediaFiles.length}');
+    debugPrint('DEBUG: _importSharedMedia dari $sourceLabel, jumlah: ${mediaFiles.length}');
 
     final List<String> csvPaths = [];
     
@@ -183,16 +184,16 @@ class _MyHomePageState extends State<MyHomePage> {
       
       // Jika content:// URI, kita terima saja karena sudah difilter oleh AndroidManifest
       final accepted = isCsvExtension || (isCsvType && (isCsvMime || isContentUri));
-      print('DEBUG: Memeriksa file: $path, Mime: $mimeType, Type: ${file.type}, isContent: $isContentUri -> Accepted: $accepted');
+      debugPrint('DEBUG: Memeriksa file: $path, Mime: $mimeType, Type: ${file.type}, isContent: $isContentUri -> Accepted: $accepted');
       
       if (accepted) {
         if (path.startsWith('content://')) {
           try {
             final String resolvedPath = await platform.invokeMethod('resolveContentUri', {'uri': path});
             csvPaths.add(resolvedPath);
-            print('DEBUG: Resolved content URI to: $resolvedPath');
+            debugPrint('DEBUG: Resolved content URI to: $resolvedPath');
           } catch (e) {
-            print('DEBUG: Failed to resolve content URI: $e');
+            debugPrint('DEBUG: Failed to resolve content URI: $e');
           }
         } else {
           csvPaths.add(path);
@@ -274,11 +275,6 @@ class _MyHomePageState extends State<MyHomePage> {
       permissionStatuses[Permission.storage]?.isGranted ?? false;
 
   bool get _hasRequiredPermissions => _microphoneGranted && _locationGranted;
-
-  bool get _canStart =>
-      _hasRequiredPermissions && !isMeasuring && !isSaving && !isCsvBusy;
-
-  bool get _canStop => isMeasuring && !isSaving;
 
   bool get _canMerge =>
       _inboxItems.isNotEmpty && !isMeasuring && !isSaving && !isCsvBusy;
@@ -371,9 +367,11 @@ class _MyHomePageState extends State<MyHomePage> {
 
     final file = File(path);
     if (await file.exists()) {
-      await Share.shareXFiles(
-        [XFile(path)],
-        text: subject ?? 'Hasil pengumpulan data Noise Map Collector',
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(path)],
+          text: subject ?? 'Hasil pengumpulan data Noise Map Collector',
+        ),
       );
     } else {
       if (!mounted) return;
@@ -423,11 +421,11 @@ class _MyHomePageState extends State<MyHomePage> {
               addSample(mean);
             }
             currentLeq = calculateLeq();
-            statusMessage = 'Mengambil sampel: ${samples.length}/100 data';
+            statusMessage = 'Mengambil sampel: ${samples.length}/$_sampleLimit data';
           });
 
-          // Mekanisme Auto-Cycle: Jika mencapai 100 sampel, simpan lalu lanjut
-          if (samples.length >= 100 && !isSaving) {
+          // Mekanisme Auto-Cycle: Jika mencapai limit sampel, simpan lalu lanjut
+          if (samples.length >= _sampleLimit && !isSaving) {
             _handleAutoCycle();
           }
         },
@@ -450,14 +448,14 @@ class _MyHomePageState extends State<MyHomePage> {
   Future<void> _handleAutoCycle() async {
     if (isSaving) return;
     
-    print('DEBUG: Auto-cycle triggered. Saving current batch...');
+    debugPrint('DEBUG: Auto-cycle triggered. Saving current batch...');
     await stopMeasurement();
     
     if (mounted) {
-      print('DEBUG: Restarting measurement for next batch...');
+      debugPrint('DEBUG: Restarting measurement for next batch...');
       await startMeasurement();
       setState(() {
-        statusMessage = 'Batch 100 data tersimpan. Melanjutkan...';
+        statusMessage = 'Batch $_sampleLimit data tersimpan. Melanjutkan...';
       });
     }
   }
@@ -765,6 +763,46 @@ class _MyHomePageState extends State<MyHomePage> {
                     ),
                     const SizedBox(height: 8),
                     Text('Sampel tersimpan: ${samples.length}'),
+                    const SizedBox(height: 12),
+                    const Divider(),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Pengaturan Auto-Cycle',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Text('Limit Sampel: '),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Slider(
+                            value: _sampleLimit.toDouble(),
+                            min: 5,
+                            max: 200,
+                            divisions: 39,
+                            label: _sampleLimit.toString(),
+                            onChanged: isMeasuring
+                                ? null
+                                : (value) {
+                                    setState(() {
+                                      _sampleLimit = value.round();
+                                    });
+                                  },
+                          ),
+                        ),
+                        Text(
+                          '$_sampleLimit',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                    Text(
+                      isMeasuring
+                          ? 'Hentikan pengukuran untuk mengubah limit'
+                          : 'Tentukan jumlah sampel sebelum auto-save',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
                   ],
                 ),
               ),

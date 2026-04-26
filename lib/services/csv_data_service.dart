@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
 class CsvInboxItem {
@@ -255,7 +256,7 @@ class CsvDataService {
       
       // Jika masih berupa content:// URI, kita log saja karena butuh penanganan native
       if (sourcePath.startsWith('content://')) {
-        print('Warning: Cannot import content:// URI directly with dart:io. URI: $sourcePath');
+        debugPrint('Warning: Cannot import content:// URI directly with dart:io. URI: $sourcePath');
         continue;
       }
 
